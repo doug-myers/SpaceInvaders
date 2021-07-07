@@ -3,6 +3,7 @@
 import turtle
 import math
 import platform
+import random
 
 print(platform.system())
 if platform.system() == "Windows":
@@ -65,27 +66,44 @@ for i in range(number_of_enemies):
     else:
         x += 50
     enemy.setposition(x, y)
+    enemy.state = "alive"
     enemies.append(enemy)
 
 enemyspeed = 0.1
 
+number_of_enemy_bullets = 3
+enemybullets = []
+# Create the enemy bullets
+for i in range(number_of_enemy_bullets):
+    bullet = turtle.Turtle()
+    bullet.color("red")
+    bullet.shape("triangle")
+    bullet.penup()
+    bullet.speed(0)
+    bullet.setheading(270)
+    bullet.shapesize(0.5, 0.5)
+    bullet.hideturtle()
+    bullet.state = "ready"
+    enemybullets.append(bullet)
 
-# Create the player's bullet
-bullet = turtle.Turtle()
-bullet.color("yellow")
-bullet.shape("triangle")
-bullet.penup()
-bullet.speed(0)
-bullet.setheading(90)
-bullet.shapesize(0.5, 0.5)
-bullet.hideturtle()
+enemybulletspeed = 1
+
+number_of_player_bullets = 3
+playerbullets = []
+# Create the player bullets
+for i in range(number_of_enemy_bullets):
+    bullet = turtle.Turtle()
+    bullet.color("yellow")
+    bullet.shape("triangle")
+    bullet.penup()
+    bullet.speed(0)
+    bullet.setheading(90)
+    bullet.shapesize(0.5, 0.5)
+    bullet.hideturtle()
+    bullet.state = "ready"
+    playerbullets.append(bullet)
 
 bulletspeed = 3
-
-# Define bullet state
-# ready - ready to fire
-# fire - bullet is firing
-bulletstate = "ready"
 
 # Move the palyer left and right
 def move_left():
@@ -103,17 +121,16 @@ def move_right():
     player.setx(x)
 
 def fire_bullet():
-    # Decleare bulletstate as a blobal if it it needs changed
-    global bulletstate
-
-    if bulletstate == "ready":
-        bulletstate = "fire"
-        # Move the bullet to just above the player
-        x = player.xcor()
-        y = player.ycor() + 10
-        bullet.setposition(x,y)
-        bullet.showturtle()
-        play_sound("Flash-laser-03.wav")
+    for bullet in playerbullets:
+        if bullet.state == "ready":
+            bullet.state = "fire"
+            # Move the bullet to just above the player
+            x = player.xcor()
+            y = player.ycor() + 10
+            bullet.setposition(x,y)
+            bullet.showturtle()
+            play_sound("Flash-laser-03.wav")
+            break
 
 def isCollision(t1, t2):
     distance = math.sqrt(math.pow(t1.xcor()-t2.xcor(),2)+math.pow(t1.ycor()-t2.ycor(),2))
@@ -141,7 +158,7 @@ wn.onkeypress(move_right, "Right")
 wn.onkeypress(fire_bullet, "space")
 
 # Play backgroun music
-play_sound("space.wav", 73)
+#play_sound("space.wav", 73)
 
 # Main game loop
 gameover = False
@@ -149,51 +166,89 @@ while not gameover:
     wn.update()
 
     for enemy in enemies:
+        if enemy.state == "dead":
+            continue
+
         # Move the enemy
         x = enemy.xcor()
         x += enemyspeed
         enemy.setx(x)
 
-        # Move the eneemy back and down
+        # Move the enemy back and down
         if enemy.xcor() > 280 or enemy.xcor() < -280:
             for e in enemies:
                 y = e.ycor()
                 y -= 40
                 e.sety(y)
+                if y < -230:
+                    gameover = True
+
             # Change enemy direction
             enemyspeed *= -1
 
         # Check for a collision between the bullet and the enemy
-        if isCollision(bullet, enemy):
-            # Reset the bullet
-            play_sound("Explosion+1.wav")
-            bullet.hideturtle()
-            bulletstate = "ready"
-            bullet.setposition(0, -400)
-            # Reset the enemy
-            enemy.setposition(0, 10000)
-            # Update the score
-            score += 10
-            scorestring = "Score: {}".format(score)
-            score_pen.clear()
-            score_pen.write(scorestring, False, align="left", font=("Arial", 14, "normal"))
+        for bullet in playerbullets:
+            if bullet.state == "fire" and isCollision(bullet, enemy):
+                # Reset the bullet
+                play_sound("Explosion+1.wav")
+                bullet.hideturtle()
+                bullet.state = "ready"
+                bullet.setposition(0, -400)
+                # Reset the enemy
+                enemy.setposition(0, 10000)
+                enemy.state = "dead"
+                # Update the score
+                score += 10
+                scorestring = "Score: {}".format(score)
+                score_pen.clear()
+                score_pen.write(scorestring, False, align="left", font=("Arial", 14, "normal"))
+                break
 
+        if enemy.state == "dead":
+            continue
 
-        if isCollision(player,enemy):
-            player.hideturtle()
-            enemy.hideturtle()
-            print("Game Over")
-            gameover = True
+        # Fire enemy bullet
+        if random.randint(0, 10000) < 1:
+            for bullet in enemybullets:
+                if bullet.state == "ready":
+                    bullet.state = "fire"
+                    # Move the bullet to just below the enemy
+                    x = enemy.xcor()
+                    y = enemy.ycor() - 10
+                    bullet.setposition(x,y)
+                    bullet.showturtle()
+                    play_sound("Flash-laser-03.wav")
+                    break
 
-    # Move the bullet
-    if bulletstate == "fire":
-        y = bullet.ycor()
-        y += bulletspeed
-        bullet.sety(y)
+    # Move the bullets
+    for bullet in playerbullets:
+        if bullet.state == "fire":
+            y = bullet.ycor()
+            y += bulletspeed
+            bullet.sety(y)
 
-    # Check to see if the bullet has gone to the top
-    if bullet.ycor() > 275:
-        bullet.hideturtle()
-        bulletstate = "ready"
+            # Check to see if the bullet has gone to the top
+            if bullet.ycor() > 275:
+                bullet.hideturtle()
+                bullet.state = "ready"
 
-    
+    # Move the enemy bullets
+    for bullet in enemybullets:
+        if bullet.state == "fire":
+            y = bullet.ycor()
+            y -= enemybulletspeed
+            bullet.sety(y)
+
+            # Check if bullet hits player
+            if isCollision(player,bullet):
+                play_sound("Explosion+1.wav")
+                player.hideturtle()
+                bullet.hideturtle()
+                gameover = True
+
+            # Check to see if the bullet has gone to the bottom
+            elif bullet.ycor() < -275:
+                bullet.hideturtle()
+                bullet.state = "ready"
+
+print("Game Over")
